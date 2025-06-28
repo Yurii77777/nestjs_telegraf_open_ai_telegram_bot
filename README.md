@@ -13,6 +13,7 @@ Create `.env` file:
 - `GOOGLE_API_KEY` = Google API key (from Google Console);
 - `GOOGLE_CX` = Google Custom Search CX;
 - `OPENAI_API_KEY` = OpenAI API Key;
+- `ADMIN_PHONE_NUMBER` = admin phone number; Ex. 380951001010
 
 `yarn start`
 
