@@ -1,6 +1,6 @@
 {
   "name": "nestjs_telegraf_open_ai_telegram_bot",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "NestJS, Telegraf, OpenAI, Telegram Bot",
   "author": "https://github.com/Yurii77777",
   "private": true,

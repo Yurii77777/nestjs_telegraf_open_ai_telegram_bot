@@ -1,11 +1,5 @@
 import { Context, Telegraf } from 'telegraf';
-import {
-  InjectBot,
-  Start,
-  Update,
-  Help,
-  // Command, Action
-} from 'nestjs-telegraf';
+import { InjectBot, Start, Update, Help, Command, On } from 'nestjs-telegraf';
 
 import { GoogleService } from '../google/google.service';
 import { TelegramUtils } from './telegram.utils';
@@ -21,6 +15,9 @@ import {
   QUERY_TOPICS,
 } from 'src/constants/common.constants';
 import { Topic } from 'src/types/searchGoogle';
+
+// Temporary storage for users who share their phone number
+const awaitingPhoneUsers = new Map<number, boolean>();
 
 @Update()
 export class TelegramController {
@@ -41,12 +38,72 @@ export class TelegramController {
 
     try {
       await ctx.reply(
-        `${userTelegramName}${BOT_MESSAGES.NEW_USER_GREETING.replace(
+        `${userTelegramName}${BOT_MESSAGES.USER_GREETING.replace(
           '${BOT_NAME}',
           BOT_NAME,
         )}`,
       );
+    } catch (error) {
+      console.log('startCommand :::', error.message);
+      await ctx.reply(
+        `${BOT_MESSAGES.ERROR.GENERAL} ERROR ::: ${error.message}`,
+      );
+    }
+  }
 
+  @Command('search_and_publish')
+  async searchAndPublishCommand(ctx: Context): Promise<any> {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    // Set flag — waiting for phone number
+    awaitingPhoneUsers.set(userId, true);
+
+    try {
+      await this.telegramUtils.sharePhone(ctx);
+    } catch (error) {
+      console.log('searchAndPublishCommand :::', error.message);
+      await ctx.reply(
+        `${BOT_MESSAGES.ERROR.GENERAL} ERROR ::: ${error.message}`,
+      );
+    }
+  }
+
+  @On('message')
+  async onMessage(ctx): Promise<any> {
+    const contact = ctx.message?.contact;
+    const userId = ctx.from?.id;
+
+    try {
+      if (!contact || !userId || !awaitingPhoneUsers.has(userId)) {
+        return await ctx.reply(BOT_MESSAGES.ERROR.SHARE_PHONE, {
+          reply_markup: {
+            remove_keyboard: true,
+          },
+        });
+      }
+
+      // Delete user from awaitingPhoneUsers
+      awaitingPhoneUsers.delete(userId);
+
+      const phone = contact.phone_number;
+
+      // Check if phone number is admin
+      if (phone !== process.env.ADMIN_PHONE_NUMBER) {
+        return await ctx.reply(BOT_MESSAGES.ERROR.ADMIN_PHONE_NUMBER, {
+          reply_markup: {
+            remove_keyboard: true,
+          },
+        });
+      }
+
+      await ctx.reply(BOT_MESSAGES.ADMIN_SUCCESS, {
+        reply_markup: {
+          remove_keyboard: true,
+        },
+      });
+
+      // Search and publish
       Object.keys(QUERY_TOPICS).map(async (topic: Topic) => {
         const query = this.telegramUtils.createQuery(topic);
         const results = await this.googleService.searchGoogle(query);
@@ -62,13 +119,11 @@ export class TelegramController {
           userPrompt,
           systemPrompt,
         );
-
         const formattedPost = `
-          ${POST_TITLE[topic]}
-          ${post}
-          ${BOT_SIGNATURE}
-        `.trim();
-
+        ${POST_TITLE[topic]}
+        ${post}
+        ${BOT_SIGNATURE}
+      `.trim();
         await ctx.telegram.sendMessage(
           process.env.TELEGRAM_PUBLIC_CHANNEL,
           formattedPost,
@@ -78,8 +133,10 @@ export class TelegramController {
         );
       });
     } catch (error) {
-      console.log('startCommand :::', error.message);
-      await ctx.reply(BOT_MESSAGES.ERROR_MESSAGE);
+      console.log('onMessage :::', error.message);
+      await ctx.reply(
+        `${BOT_MESSAGES.ERROR.GENERAL} ERROR ::: ${error.message}`,
+      );
     }
   }
 
@@ -94,6 +151,9 @@ export class TelegramController {
       );
     } catch (error) {
       console.log('helpCommand :::', error.message);
+      await ctx.reply(
+        `${BOT_MESSAGES.ERROR.GENERAL} ERROR ::: ${error.message}`,
+      );
     }
   }
 }

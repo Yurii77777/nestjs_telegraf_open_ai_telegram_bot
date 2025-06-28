@@ -1,5 +1,12 @@
+import { Context } from 'telegraf';
+
 import { Topic } from 'src/types/searchGoogle';
-import { BASE_SUFFIX, QUERY_TOPICS } from 'src/constants/common.constants';
+import {
+  BASE_SUFFIX,
+  BOT_NAME,
+  QUERY_TOPICS,
+} from 'src/constants/common.constants';
+import { BOT_MESSAGES } from './telegram.messages';
 
 export class TelegramUtils {
   createQuery(topic: Topic): string {
@@ -12,5 +19,32 @@ export class TelegramUtils {
     const baseSuffix = `${BASE_SUFFIX} ${monthYear}`;
 
     return `${QUERY_TOPICS[topic]} ${baseSuffix}`;
+  }
+
+  async sharePhone(ctx: Context) {
+    // Create keyboard
+    const keyboard = [
+      [
+        {
+          text: BOT_MESSAGES.BUTTON.SHARE_PHONE_NUMBER,
+          request_contact: true,
+        },
+      ],
+    ];
+
+    // Send message with keyboard
+    try {
+      await ctx.reply(
+        BOT_MESSAGES.BUTTON.SHARE_PHONE_PARAGRAPH.replace(
+          '${BOT_NAME}',
+          BOT_NAME,
+        ),
+        {
+          reply_markup: { keyboard },
+        },
+      );
+    } catch (error) {
+      console.log('sharePhone :::', error.message);
+    }
   }
 }
